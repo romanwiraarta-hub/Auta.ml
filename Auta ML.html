@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Toko AUTA - Sparepart Motor</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+• { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',sans-serif; }
+body { background:#f0f2f5; color:#222; }
+header { background:#c0392b; color:#fff; padding:15px 20px; display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; z-index:100; }
+header h1 { font-size:22px; letter-spacing:2px; }
+nav button { background:#fff; color:#c0392b; border:none; padding:8px 14px; margin-left:6px; border-radius:6px; cursor:pointer; font-weight:bold; }
+nav button:hover { background:#eee; }
+.container { max-width:1100px; margin:20px auto; padding:0 15px; }
+.hidden { display:none; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:15px; }
+.card { background:#fff; border-radius:10px; padding:15px; box-shadow:0 2px 6px rgba(0,0,0,.1); }
+.card img { width:100%; height:140px; object-fit:cover; border-radius:8px; background:#eee; }
+.card h3 { font-size:16px; margin:8px 0 4px; }
+.price { color:#c0392b; font-weight:bold; font-size:18px; }
+.stock { font-size:12px; color:#666; }
+.stars { color:#f39c12; font-size:14px; }
+button.buy { width:100%; background:#27ae60; color:#fff; border:none; padding:8px; border-radius:6px; cursor:pointer; margin-top:8px; }
+button.buy:hover { background:#219150; }
+button.buy:disabled { background:#aaa; cursor:not-allowed; }
+input,select,textarea { width:100%; padding:8px; margin:5px 0; border:1px solid #ccc; border-radius:6px; }
+.panel { background:#fff; padding:20px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.1); margin-bottom:20px; }
+table { width:100%; border-collapse:collapse; margin-top:10px; }
+th,td { border:1px solid #ddd; padding:8px; text-align:left; font-size:14px; }
+th { background:#c0392b; color:#fff; }
+.btn { background:#c0392b; color:#fff; border:none; padding:10px 16px; border-radius:6px; cursor:pointer; font-weight:bold; }
+.btn-green { background:#27ae60; }
+.btn-blue { background:#2980b9; }
+.modal { position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; z-index:200; }
+.modal-box { background:#fff; padding:25px; border-radius:12px; max-width:420px; width:90%; max-height:90vh; overflow:auto; }
+.qris { text-align:center; }
+.qris img { width:180px; }
+.tabs { display:flex; gap:8px; margin-bottom:15px; flex-wrap:wrap; }
+.tabs button { padding:8px 14px; border:none; border-radius:6px; cursor:pointer; background:#ddd; }
+.tabs button.active { background:#c0392b; color:#fff; }
+.stat { display:flex; gap:15px; flex-wrap:wrap; margin-bottom:15px; }
+.stat div { flex:1; min-width:150px; background:#fff; padding:15px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.1); text-align:center; }
+.stat h2 { color:#c0392b; font-size:24px; }
+.location { background:#fff; padding:15px; border-radius:10px; margin-top:15px; }
+label { font-size:13px; font-weight:bold; color:#444; }
+</style>
+</head>
+<body>
+
+<header>
+<h1>🔧 TOKO AUTA</h1>
+<nav>
+<button onclick="show('shop')">🛒 Toko</button>
+<button onclick="show('admin')">🔐 Admin</button>
+</nav>
+</header>
+
+<!-- ============ HALAMAN TOKO (PEMBELI) ============ -->
+<div id="shop" class="container">
+<div class="location">
+📍 <b>Lokasi Toko:</b> <span id="lokasiToko">Jl. Otomotif No. 1, Jakarta</span>
+</div>
+<h2 style="margin:15px 0;">Katalog Sparepart Motor</h2>
+<div class="grid" id="productGrid"></div>
+</div>
+
+<!-- ============ HALAMAN ADMIN ============ -->
+<div id="admin" class="container hidden">
+<div class="tabs">
+<button class="active" onclick="adminTab('t-dash',this)">📊 Dashboard</button>
+<button onclick="adminTab('t-produk',this)">📦 Produk</button>
+<button onclick="adminTab('t-order',this)">🧾 Pesanan</button>
+<button onclick="adminTab('t-review',this)">⭐ Ulasan</button>
+<button onclick="adminTab('t-set',this)">⚙️ Pengaturan</button>
+</div>
+
+<!-- DASHBOARD -->
+<div id="t-dash" class="panel">
+<h2>Dashboard Keuangan</h2>
+<div class="stat">
+<div><h2 id="sTotalOrder">0</h2>Total Pesanan</div>
+<div><h2 id="sTotalUnit">0</h2>Produk Terjual</div>
+<div><h2 id="sTotalUang">Rp0</h2>Total Pendapatan</div>
+<div><h2 id="sTotalProduk">0</h2>Jenis Produk</div>
+</div>
+<button class="btn btn-green" onclick="exportExcel()">📈 Export Laporan ke Excel</button>
+</div>
+
+<!-- PRODUK -->
+<div id="t-produk" class="panel hidden">
+<h2>Kelola Produk</h2>
+<label>Nama Produk</label><input id="pName" placeholder="cth: Kampas Rem Vario">
+<label>Harga (Rp)</label><input id="pPrice" type="number" placeholder="50000">
+<label>Stok</label><input id="pStock" type="number" placeholder="20">
+<label>URL Gambar (opsional)</label><input id="pImg" placeholder="https://...">
+<button class="btn" onclick="addProduct()">➕ Tambah Produk</button>
+<table id="productTable"></table>
+</div>
+
+<!-- PESANAN -->
+<div id="t-order" class="panel hidden">
+<h2>Daftar Pesanan Masuk</h2>
+<table id="orderTable"></table>
+</div>
+
+<!-- REVIEW -->
+<div id="t-review" class="panel hidden">
+<h2>Ulasan & Rating Pembeli</h2>
+<div id="reviewList"></div>
+</div>
+
+<!-- SETTINGS -->
+<div id="t-set" class="panel hidden">
+<h2>Pengaturan Toko</h2>
+<label>Alamat / Lokasi Toko</label>
+<input id="setLokasi" placeholder="Alamat toko Anda">
+<label>Nomor QRIS / Info Pembayaran</label>
+<textarea id="setBayar" rows="3" placeholder="Bank BCA 123456 a.n Auta Dana/OVO: 0812xxxx QRIS: scan gambar"></textarea>
+<button class="btn" onclick="saveSettings()">💾 Simpan</button>
+</div>
+</div>
+
+<!-- MODAL CHECKOUT -->
+<div id="modal" class="modal hidden">
+<div class="modal-box" id="modalContent"></div>
+</div>
+
+<script>
+/* ====== DATA STORAGE ====== */
+let products = JSON.parse(localStorage.getItem('auta_products')) || [
+{id:1,name:"Kampas Rem Vario",price:55000,stock:20,img:"",sold:0},
+{id:2,name:"Busi Motor NGK",price:25000,stock:50,img:"",sold:0},
+{id:3,name:"Oli Mesin 1L",price:48000,stock:30,img:"",sold:0},
+];
+let orders = JSON.parse(localStorage.getItem('auta_orders')) || [];
+let reviews = JSON.parse(localStorage.getItem('auta_reviews')) || [];
+let settings = JSON.parse(localStorage.getItem('auta_settings')) || {
+lokasi:"Jl. Otomotif No. 1, Jakarta",
+bayar:"Transfer BCA 1234567890 a.n TOKO AUTA\nDANA/OVO: 081200000000\nQRIS: (scan di toko)"
+};
+
+function save(){
+localStorage.setItem('auta_products',JSON.stringify(products));
+localStorage.setItem('auta_orders',JSON.stringify(orders));
+localStorage.setItem('auta_reviews',JSON.stringify(reviews));
+localStorage.setItem('auta_settings',JSON.stringify(settings));
+}
+
+/* ====== NAVIGATION ====== */
+function show(id){
+document.getElementById('shop').classList.add('hidden');
+document.getElementById('admin').classList.add('hidden');
+document.getElementById(id).classList.remove('hidden');
+if(id==='admin') renderAdmin();
+if(id==='shop') renderShop();
+}
+function adminTab(id,btn){
+document.querySelectorAll('#admin .panel').forEach(p=>p.classList.add('hidden'));
+document.getElementById(id).classList.remove('hidden');
+document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
+btn.classList.add('active');
+}
+
+/* ====== SHOP (PEMBELI) ====== */
+function ratingOf(pid){
+let r = reviews.filter(x=>x.pid===pid);
+if(!r.length) return {avg:0,count:0};
+let avg = r.reduce((a,b)=>a+b.star,0)/r.length;
+return {avg:avg.toFixed(1),count:r.length};
+}
+function stars(n){ n=Math.round(n); return '★'.repeat(n)+'☆'.repeat(5-n); }
+
+function renderShop(){
+document.getElementById('lokasiToko').textContent = settings.lokasi;
+let g = document.getElementById('productGrid'); g.innerHTML='';
+products.forEach(p=>{
+let r = ratingOf(p.id);
+let img = p.img ? p.img : 'https://via.placeholder.com/220x140?text=Sparepart';
+g.innerHTML += <div class="card"&gt; &lt;img src="${img}" onerror="this.src='https://via.placeholder.com/220x140?text=Sparepart'">
+<h3>${p.name}&lt;/h3&gt; &lt;div class="price"&gt;Rp${p.price.toLocaleString('id')}</div>
+<div class="stock">Stok: ${p.stock}&lt;/div&gt; &lt;div class="stars"&gt;${stars(r.avg)} (${r.count})&lt;/div&gt; &lt;button class="buy" ${p.stock<=0?'disabled':''} onclick="checkout(${p.id})"&gt; ${p.stock<=0?'Stok Habis':'Beli Sekarang'}
+</button>
+</div>`;
+});
+}
+
+/* ====== CHECKOUT ====== */
+function checkout(pid){
+let p = products.find(x=>x.id===pid);
+document.getElementById('modal').classList.remove('hidden');
+document.getElementById('modalContent').innerHTML = &lt;h2&gt;🛒 Checkout&lt;/h2&gt; &lt;p&gt;&lt;b&gt;${p.name}</b> — Rp{p.stock}">
+<label>Metode Pembayaran</label>
+<select id="buyPay">
+<option>Transfer Bank</option>
+<option>QRIS</option>
+<option>DANA</option>
+<option>OVO</option>
+<option>GoPay</option>
+<option>ShopeePay</option>
+</select>
+<button class="btn btn-green" onclick="payNow(${pid})"&gt;Bayar&lt;/button&gt; &lt;button class="btn" style="background:#888" onclick="closeModal()"&gt;Batal&lt;/button&gt;;
+}
+
+function payNow(pid){
+let p = products.find(x=>x.id===pid);
+let name=buyName.value.trim(), phone=buyPhone.value.trim();
+let qty=parseInt(buyQty.value), pay=buyPay.value;
+if(!name||!phone){ alert('Isi nama & no HP!'); return; }
+if(qty<1||qty>p.stock){ alert('Jumlah tidak valid!'); return; }
+
+document.getElementById('modalContent').innerHTML = &lt;h2&gt;💳 Selesaikan Pembayaran&lt;/h2&gt; &lt;p&gt;Total: &lt;b class="price"&gt;Rp${(p.price*qty).toLocaleString('id')}</b></p>
+<div class="qris">
+<p><b>Metode:</b> latex
+{pay}&lt;/p&gt; &lt;img src="https://via.placeholder.com/180?text=QRIS+AUTA"&gt; &lt;p style="white-space:pre-line;text-align:left;background:#f7f7f7;padding:10px;border-radius:6px;"&gt;
+
+{settings.bayar}</p>
+</div>
+<button class="btn btn-green" onclick="confirmPay({name}','{qty},'${pay}')"&gt;✅ Saya Sudah Bayar&lt;/button&gt; &lt;button class="btn" style="background:#888" onclick="closeModal()"&gt;Batal&lt;/button&gt;;
+}
+
+function confirmPay(pid,name,phone,qty,pay){
+let p = products.find(x=>x.id===pid);
+p.stock -= qty; p.sold += qty;
+orders.push({
+id:Date.now(), tgl:new Date().toLocaleString('id'),
+produk:p.name, qty:qty, harga:p.price, total:p.price*qty,
+nama:name, hp:phone, bayar:pay, status:"Menunggu Verifikasi"
+});
+save();
+// minta review
+document.getElementById('modalContent').innerHTML = &lt;h2&gt;🎉 Terima Kasih,${name}!</h2>
+<p>Pesanan Anda diterima. Kami akan verifikasi pembayaran.</p>
+<hr style="margin:15px 0;">
+<h3>Beri Rating & Ulasan</h3>
+<label>Bintang</label>
+<select id="revStar">
+<option value="5">★★★★★ (5)</option>
+<option value="4">★★★★☆ (4)</option>
+<option value="3">★★★☆☆ (3)</option>
+<option value="2">★★☆☆☆ (2)</option>
+<option value="1">★☆☆☆☆ (1)</option>
+</select>
+<label>Saran / Kritik</label>
+<textarea id="revText" rows="3" placeholder="Tulis ulasan Anda..."></textarea>
+<button class="btn btn-green" onclick="submitReview({name}')">Kirim Ulasan</button>
+<button class="btn" style="background:#888" onclick="closeModal()">Nanti Saja</button>
+`;
+}
+
+function submitReview(pid,name){
+reviews.push({pid:pid,produk:products.find(x=>x.id===pid).name,
+nama:name,star:parseInt(revStar.value),text:revText.value,
+tgl:new Date().toLocaleDateString('id')});
+save(); alert('Terima kasih atas ulasannya! ⭐'); closeModal();
+}
+
+function closeModal(){ document.getElementById('modal').classList.add('hidden'); renderShop(); }
+
+/* ====== ADMIN ====== */
+function renderAdmin(){
+// dashboard
+document.getElementById('sTotalOrder').textContent = orders.length;
+document.getElementById('sTotalUnit').textContent = orders.reduce((a,b)=>a+b.qty,0);
+document.getElementById('sTotalUang').textContent = 'Rp'+orders.reduce((a,b)=>a+b.total,0).toLocaleString('id');
+document.getElementById('sTotalProduk').textContent = products.length;
+
+// produk table
+let pt = document.getElementById('productTable');
+pt.innerHTML='<tr><th>Nama</th><th>Harga</th><th>Stok</th><th>Terjual</th><th>Aksi</th></tr>';
+products.forEach(p=>{
+pt.innerHTML+=<tr&gt; &lt;td&gt;${p.name}</td><td>Rp${p.price.toLocaleString('id')}&lt;/td&gt; &lt;td&gt;${p.stock}</td><td>${p.sold}&lt;/td&gt; &lt;td&gt;&lt;button class="btn" style="padding:4px 8px;background:#2980b9" onclick="editStock(${p.id})">+Stok</button>
+<button class="btn" style="padding:4px 8px;background:#c0392b" onclick="delProduct(${p.id})"&gt;Hapus&lt;/button&gt;&lt;/td&gt; &lt;/tr>;
+});
+
+// order table
+let ot = document.getElementById('orderTable');
+ot.innerHTML='<tr><th>Tanggal</th><th>Produk</th><th>Qty</th><th>Total</th><th>Pembeli</th><th>HP</th><th>Bayar</th><th>Status</th></tr>';
+orders.slice().reverse().forEach(o=>{
+ot.innerHTML+=<tr&gt; &lt;td&gt;${o.tgl}</td><td>${o.produk}&lt;/td&gt;&lt;td&gt;${o.qty}</td>
+<td>Rp${o.total.toLocaleString('id')}&lt;/td&gt;&lt;td&gt;${o.nama}</td>
+<td>${o.hp}&lt;/td&gt;&lt;td&gt;${o.bayar}</td>
+<td><button class="btn" style="padding:4px 8px;background:${o.status==='Lunas'?'#27ae60':'#f39c12'}" onclick="toggleStatus(${o.id})">${o.status}&lt;/button&gt;&lt;/td&gt; &lt;/tr>;
+});
+
+// reviews
+let rl = document.getElementById('reviewList'); rl.innerHTML='';
+if(!reviews.length) rl.innerHTML='<p>Belum ada ulasan.</p>';
+reviews.slice().reverse().forEach(r=>{
+rl.innerHTML+=<div style="border-bottom:1px solid #eee;padding:10px 0;"&gt; &lt;b&gt;${r.nama}</b> <span class="stars">${stars(r.star)}&lt;/span&gt; &lt;small&gt;(${r.produk})</small><br>
+<small>${r.tgl}&lt;/small&gt;&lt;p&gt;${r.text||'-'}&lt;/p&gt;&lt;/div>;
+});
+
+// settings
+document.getElementById('setLokasi').value = settings.lokasi;
+document.getElementById('setBayar').value = settings.bayar;
+}
+
+function addProduct(){
+let n=pName.value.trim(), pr=parseInt(pPrice.value), s=parseInt(pStock.value);
+if(!n||!pr){ alert('Isi nama & harga!'); return; }
+products.push({id:Date.now(),name:n,price:pr,stock:s||0,img:pImg.value.trim(),sold:0});
+save(); pName.value=pPrice.value=pStock.value=pImg.value=''; renderAdmin();
+}
+function editStock(id){
+let p=products.find(x=>x.id===id);
+let add=prompt('Tambah stok untuk '+p.name+':','10');
+if(add!==null){ p.stock+=parseInt(add)||0; save(); renderAdmin(); }
+}
+function delProduct(id){
+if(confirm('Hapus produk ini?')){ products=products.filter(x=>x.id!==id); save(); renderAdmin(); }
+}
+function toggleStatus(id){
+let o=orders.find(x=>x.id===id);
+o.status = o.status==='Lunas'?'Menunggu Verifikasi':'Lunas';
+save(); renderAdmin();
+}
+function saveSettings(){
+settings.lokasi=setLokasi.value; settings.bayar=setBayar.value;
+save(); alert('Pengaturan disimpan! ✅');
+}
+
+/* ====== EXPORT EXCEL ====== /
+function exportExcel(){
+let wb = XLSX.utils.book_new();
+// Sheet Pesanan
+let dataOrder = orders.map(o=>({
+Tanggal:o.tgl,Produk:o.produk,Jumlah:o.qty,Harga:o.harga,
+Total:o.total,Pembeli:o.nama,HP:o.hp,Pembayaran:o.bayar,Status:o.status
+}));
+let ws1 = XLSX.utils.json_to_sheet(dataOrder);
+XLSX.utils.book_append_sheet(wb,ws1,"Pesanan");
+// Sheet Produk
+let dataProd = products.map(p=>({
+Produk:p.name,Harga:p.price,Stok:p.stock,Terjual:p.sold,
+Omzet:p.soldp.price
+}));
+let ws2 = XLSX.utils.json_to_sheet(dataProd);
+XLSX.utils.book_append_sheet(wb,ws2,"Produk");
+// Sheet Ringkasan
+let ringkas=[{
+Total_Pesanan:orders.length,
+Produk_Terjual:orders.reduce((a,b)=>a+b.qty,0),
+Total_Pendapatan:orders.reduce((a,b)=>a+b.total,0)
+}];
+let ws3 = XLSX.utils.json_to_sheet(ringkas);
+XLSX.utils.book_append_sheet(wb,ws3,"Ringkasan");
+
+XLSX.writeFile(wb,"Laporan_AUTA_"+new Date().toISOString().slice(0,10)+".xlsx");
+}
+
+/* INIT */
+renderShop();
+</script>
+</body>
+</html>
